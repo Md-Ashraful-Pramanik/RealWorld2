@@ -25,7 +25,10 @@ async function login(userPayload = {}) {
     throw new AppError(401, 'invalid credentials');
   }
 
-  return serializeUser(user, signToken(user));
+  return {
+    response: serializeUser(user, signToken(user)),
+    auditUserId: user.id
+  };
 }
 
 async function register(userPayload = {}) {
@@ -38,7 +41,10 @@ async function register(userPayload = {}) {
     passwordHash
   });
 
-  return serializeUser(user, signToken(user));
+  return {
+    response: serializeUser(user, signToken(user)),
+    auditUserId: user.id
+  };
 }
 
 module.exports = {

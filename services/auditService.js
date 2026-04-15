@@ -10,16 +10,31 @@ async function logAudit(entry) {
 }
 
 function auditTrail(req, res, next) {
-  res.on('finish', () => {
-    void logAudit({
-      userId: req.user ? req.user.id : null,
-      method: req.method,
-      path: req.originalUrl,
-      statusCode: res.statusCode,
-      requestBody: sanitizeValue(req.body),
-      queryParams: sanitizeValue(req.query)
+  const originalEnd = res.end.bind(res);
+  let auditCommitted = false;
+
+  res.end = function patchedEnd(chunk, encoding, callback) {
+    if (auditCommitted) {
+      return originalEnd(chunk, encoding, callback);
+    }
+
+    auditCommitted = true;
+
+    Promise.resolve(
+      logAudit({
+        userId: req.auditUserId || (req.user ? req.user.id : null),
+        method: req.method,
+        path: req.originalUrl,
+        statusCode: res.statusCode,
+        requestBody: sanitizeValue(req.body),
+        queryParams: sanitizeValue(req.query)
+      })
+    ).finally(() => {
+      originalEnd(chunk, encoding, callback);
     });
-  });
+
+    return res;
+  };
 
   next();
 }
