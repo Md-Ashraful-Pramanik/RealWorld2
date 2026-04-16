@@ -1,4 +1,5 @@
 const { AppError } = require('./errors');
+const { containsUnsafeHtml } = require('./sanitize');
 
 function isPlainObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -59,6 +60,17 @@ function requireString(payload, field, options = {}) {
   return normalizedValue;
 }
 
+function requireSafeString(payload, field, options = {}) {
+  const { scope = 'payload' } = options;
+  const value = requireString(payload, field, options);
+
+  if (containsUnsafeHtml(value)) {
+    throw new AppError(422, 'invalid payload', [`${field} contains disallowed HTML in ${scope}`]);
+  }
+
+  return value;
+}
+
 function optionalString(payload, field, options = {}) {
   if (payload[field] === undefined) {
     return undefined;
@@ -67,12 +79,28 @@ function optionalString(payload, field, options = {}) {
   return requireString(payload, field, options);
 }
 
+function optionalSafeString(payload, field, options = {}) {
+  if (payload[field] === undefined) {
+    return undefined;
+  }
+
+  return requireSafeString(payload, field, options);
+}
+
 function optionalNullableString(payload, field, options = {}) {
   if (payload[field] === undefined || payload[field] === null) {
     return payload[field];
   }
 
   return requireString(payload, field, options);
+}
+
+function optionalNullableSafeString(payload, field, options = {}) {
+  if (payload[field] === undefined || payload[field] === null) {
+    return payload[field];
+  }
+
+  return requireSafeString(payload, field, options);
 }
 
 function optionalStringArray(payload, field, options = {}) {
@@ -107,13 +135,37 @@ function optionalStringArray(payload, field, options = {}) {
   });
 }
 
+function optionalSafeStringArray(payload, field, options = {}) {
+  const values = optionalStringArray(payload, field, options);
+
+  if (!values) {
+    return values;
+  }
+
+  values.forEach((value, index) => {
+    if (containsUnsafeHtml(value)) {
+      throw new AppError(
+        422,
+        'invalid payload',
+        [`${field}[${index}] contains disallowed HTML in ${options.scope || 'payload'}`]
+      );
+    }
+  });
+
+  return values;
+}
+
 module.exports = {
   ensurePlainObject,
   requireBodyContainer,
   assertAllowedFields,
   requireAtLeastOneField,
   requireString,
+  requireSafeString,
   optionalString,
+  optionalSafeString,
   optionalNullableString,
-  optionalStringArray
+  optionalNullableSafeString,
+  optionalStringArray,
+  optionalSafeStringArray
 };

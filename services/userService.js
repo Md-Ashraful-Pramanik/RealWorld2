@@ -7,7 +7,7 @@ const { signToken } = require('../utils/auth');
 const {
   assertAllowedFields,
   requireAtLeastOneField,
-  optionalNullableString,
+  optionalNullableSafeString,
   optionalString
 } = require('../utils/validation');
 
@@ -17,22 +17,18 @@ async function getCurrentUser(user) {
 }
 
 async function updateCurrentUser(currentUser, updates = {}) {
-  const allowedFields = ['email', 'password', 'image', 'bio'];
+  const allowedFields = ['password', 'image', 'bio'];
   assertAllowedFields(updates, allowedFields, 'user');
   requireAtLeastOneField(updates, allowedFields, 'user update');
 
   const payload = {};
 
-  if (updates.email !== undefined) {
-    payload.email = optionalString(updates, 'email', { scope: 'user' }).toLowerCase();
-  }
-
   if (updates.bio !== undefined) {
-    payload.bio = optionalNullableString(updates, 'bio', { scope: 'user' });
+    payload.bio = optionalNullableSafeString(updates, 'bio', { scope: 'user' });
   }
 
   if (updates.image !== undefined) {
-    payload.image = optionalNullableString(updates, 'image', { scope: 'user' });
+    payload.image = optionalNullableSafeString(updates, 'image', { scope: 'user' });
   }
 
   if (updates.password !== undefined) {

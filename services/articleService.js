@@ -7,10 +7,10 @@ const { serializeArticle, serializeArticles, serializeComment, serializeComments
 const { generateUniqueSlug } = require('../utils/slug');
 const {
   assertAllowedFields,
-  optionalString,
-  optionalStringArray,
+  optionalSafeString,
+  optionalSafeStringArray,
   requireAtLeastOneField,
-  requireString
+  requireSafeString
 } = require('../utils/validation');
 
 function normalizePagination(query = {}) {
@@ -86,10 +86,10 @@ async function createArticle(currentUser, articlePayload = {}) {
     }));
   }
 
-  const title = requireString(articlePayload, 'title', { scope: 'article' });
-  const description = requireString(articlePayload, 'description', { scope: 'article' });
-  const body = requireString(articlePayload, 'body', { scope: 'article' });
-  const tagList = optionalStringArray(articlePayload, 'tagList', { scope: 'article' }) || [];
+  const title = requireSafeString(articlePayload, 'title', { scope: 'article' });
+  const description = requireSafeString(articlePayload, 'description', { scope: 'article' });
+  const body = requireSafeString(articlePayload, 'body', { scope: 'article' });
+  const tagList = optionalSafeStringArray(articlePayload, 'tagList', { scope: 'article' }) || [];
 
   const client = await getClient();
 
@@ -140,7 +140,7 @@ async function updateArticle(slug, currentUser, articlePayload = {}) {
   const updates = {};
 
   if (articlePayload.title !== undefined) {
-    updates.title = optionalString(articlePayload, 'title', { scope: 'article' });
+    updates.title = optionalSafeString(articlePayload, 'title', { scope: 'article' });
     if (updates.title !== existingArticle.title) {
       updates.slug = await generateUniqueSlug(updates.title, async (candidate) => {
         if (candidate === existingArticle.slug) {
@@ -152,11 +152,11 @@ async function updateArticle(slug, currentUser, articlePayload = {}) {
   }
 
   if (articlePayload.description !== undefined) {
-    updates.description = optionalString(articlePayload, 'description', { scope: 'article' });
+    updates.description = optionalSafeString(articlePayload, 'description', { scope: 'article' });
   }
 
   if (articlePayload.body !== undefined) {
-    updates.body = optionalString(articlePayload, 'body', { scope: 'article' });
+    updates.body = optionalSafeString(articlePayload, 'body', { scope: 'article' });
   }
 
   await articleModel.updateArticle(existingArticle.id, updates);
@@ -185,7 +185,7 @@ async function addComment(slug, currentUser, commentPayload = {}) {
     throw new AppError(422, 'comment body is required');
   }
 
-  const body = requireString(commentPayload, 'body', { scope: 'comment' });
+  const body = requireSafeString(commentPayload, 'body', { scope: 'comment' });
 
   const article = await articleModel.findArticleBySlug(slug);
   if (!article) {

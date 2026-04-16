@@ -1,3 +1,11 @@
+const sanitizeHtml = require('sanitize-html');
+
+const htmlSanitizeOptions = {
+  allowedTags: [],
+  allowedAttributes: {},
+  disallowedTagsMode: 'discard'
+};
+
 function sanitizeValue(value) {
   if (Array.isArray(value)) {
     return value.map(sanitizeValue);
@@ -17,6 +25,22 @@ function sanitizeValue(value) {
   return value;
 }
 
+function sanitizePlainText(value) {
+  return sanitizeHtml(value, htmlSanitizeOptions).trim();
+}
+
+function containsUnsafeHtml(value) {
+  if (typeof value !== 'string') {
+    return false;
+  }
+
+  const normalizedValue = value.trim();
+
+  return /<[^>]+>/i.test(normalizedValue) || /javascript\s*:/i.test(normalizedValue) || /\bon\w+\s*=/i.test(normalizedValue);
+}
+
 module.exports = {
-  sanitizeValue
+  sanitizeValue,
+  sanitizePlainText,
+  containsUnsafeHtml
 };
