@@ -1,4 +1,5 @@
 const articleService = require('../services/articleService');
+const { requireBodyContainer } = require('../utils/validation');
 
 async function listArticles(req, res) {
   const result = await articleService.listArticles(req.query, req.user);
@@ -16,12 +17,12 @@ async function getArticle(req, res) {
 }
 
 async function createArticle(req, res) {
-  const result = await articleService.createArticle(req.user, req.body.article || {});
+  const result = await articleService.createArticle(req.user, requireBodyContainer(req.body, 'article'));
   res.status(201).json(result);
 }
 
 async function updateArticle(req, res) {
-  const result = await articleService.updateArticle(req.params.slug, req.user, req.body.article || {});
+  const result = await articleService.updateArticle(req.params.slug, req.user, requireBodyContainer(req.body, 'article'));
   res.json(result);
 }
 
@@ -31,7 +32,7 @@ async function deleteArticle(req, res) {
 }
 
 async function addComment(req, res) {
-  const result = await articleService.addComment(req.params.slug, req.user, req.body.comment || {});
+  const result = await articleService.addComment(req.params.slug, req.user, requireBodyContainer(req.body, 'comment'));
   res.status(201).json(result);
 }
 

@@ -5,6 +5,13 @@ const tagModel = require('../models/tagModel');
 const { AppError } = require('../utils/errors');
 const { serializeArticle, serializeArticles, serializeComment, serializeComments } = require('../utils/serializer');
 const { generateUniqueSlug } = require('../utils/slug');
+const {
+  assertAllowedFields,
+  optionalString,
+  optionalStringArray,
+  requireAtLeastOneField,
+  requireString
+} = require('../utils/validation');
 
 function normalizePagination(query = {}) {
   return {
@@ -64,6 +71,8 @@ async function getArticle(slug, viewer) {
 }
 
 async function createArticle(currentUser, articlePayload = {}) {
+  assertAllowedFields(articlePayload, ['title', 'description', 'body', 'tagList'], 'article');
+
   if (!articlePayload.title || !articlePayload.description || !articlePayload.body) {
     throw new AppError(422, 'missing required article fields', [
       'title is required',
@@ -77,24 +86,29 @@ async function createArticle(currentUser, articlePayload = {}) {
     }));
   }
 
+  const title = requireString(articlePayload, 'title', { scope: 'article' });
+  const description = requireString(articlePayload, 'description', { scope: 'article' });
+  const body = requireString(articlePayload, 'body', { scope: 'article' });
+  const tagList = optionalStringArray(articlePayload, 'tagList', { scope: 'article' }) || [];
+
   const client = await getClient();
 
   try {
     await client.query('BEGIN');
 
-    const slug = await generateUniqueSlug(articlePayload.title, (candidate) => articleModel.slugExists(candidate, client));
+    const slug = await generateUniqueSlug(title, (candidate) => articleModel.slugExists(candidate, client));
     const article = await articleModel.createArticle(
       {
         slug,
-        title: articlePayload.title,
-        description: articlePayload.description,
-        body: articlePayload.body,
+        title,
+        description,
+        body,
         authorId: currentUser.id
       },
       client
     );
 
-    await tagModel.replaceArticleTags(article.id, articlePayload.tagList || [], client);
+    await tagModel.replaceArticleTags(article.id, tagList, client);
 
     await client.query('COMMIT');
 
@@ -109,6 +123,10 @@ async function createArticle(currentUser, articlePayload = {}) {
 }
 
 async function updateArticle(slug, currentUser, articlePayload = {}) {
+  const allowedFields = ['title', 'description', 'body'];
+  assertAllowedFields(articlePayload, allowedFields, 'article');
+  requireAtLeastOneField(articlePayload, allowedFields, 'article update');
+
   const existingArticle = await articleModel.findArticleBySlug(slug);
 
   if (!existingArticle) {
@@ -122,9 +140,9 @@ async function updateArticle(slug, currentUser, articlePayload = {}) {
   const updates = {};
 
   if (articlePayload.title !== undefined) {
-    updates.title = articlePayload.title;
-    if (articlePayload.title !== existingArticle.title) {
-      updates.slug = await generateUniqueSlug(articlePayload.title, async (candidate) => {
+    updates.title = optionalString(articlePayload, 'title', { scope: 'article' });
+    if (updates.title !== existingArticle.title) {
+      updates.slug = await generateUniqueSlug(updates.title, async (candidate) => {
         if (candidate === existingArticle.slug) {
           return false;
         }
@@ -134,11 +152,11 @@ async function updateArticle(slug, currentUser, articlePayload = {}) {
   }
 
   if (articlePayload.description !== undefined) {
-    updates.description = articlePayload.description;
+    updates.description = optionalString(articlePayload, 'description', { scope: 'article' });
   }
 
   if (articlePayload.body !== undefined) {
-    updates.body = articlePayload.body;
+    updates.body = optionalString(articlePayload, 'body', { scope: 'article' });
   }
 
   await articleModel.updateArticle(existingArticle.id, updates);
@@ -161,9 +179,13 @@ async function deleteArticle(slug, currentUser) {
 }
 
 async function addComment(slug, currentUser, commentPayload = {}) {
+  assertAllowedFields(commentPayload, ['body'], 'comment');
+
   if (!commentPayload.body) {
     throw new AppError(422, 'comment body is required');
   }
+
+  const body = requireString(commentPayload, 'body', { scope: 'comment' });
 
   const article = await articleModel.findArticleBySlug(slug);
   if (!article) {
@@ -171,7 +193,7 @@ async function addComment(slug, currentUser, commentPayload = {}) {
   }
 
   const comment = await commentModel.createComment({
-    body: commentPayload.body,
+    body,
     authorId: currentUser.id,
     articleId: article.id
   });

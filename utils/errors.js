@@ -15,6 +15,14 @@ function errorHandler(error, req, res, next) {
     return next(error);
   }
 
+  if (error instanceof SyntaxError && error.type === 'entity.parse.failed') {
+    return res.status(422).json({
+      errors: {
+        body: ['invalid JSON payload']
+      }
+    });
+  }
+
   if (error.code === '23505') {
     return res.status(409).json({
       errors: {

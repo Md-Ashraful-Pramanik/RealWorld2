@@ -21,15 +21,16 @@ async function replaceArticleTags(articleId, tagNames = [], executor) {
 
   const uniqueTagNames = [...new Set(tagNames.filter(Boolean))];
 
-  for (const tagName of uniqueTagNames) {
+  for (const [index, tagName] of uniqueTagNames.entries()) {
     const tag = await ensureTag(tagName, executor);
     await query(
       `
-        INSERT INTO article_tags (article_id, tag_id)
-        VALUES ($1, $2)
-        ON CONFLICT (article_id, tag_id) DO NOTHING
+        INSERT INTO article_tags (article_id, tag_id, position)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (article_id, tag_id)
+        DO UPDATE SET position = EXCLUDED.position
       `,
-      [articleId, tag.id],
+      [articleId, tag.id, index],
       executor
     );
   }

@@ -36,6 +36,10 @@ async function unfollow(username, currentUser) {
     throw new AppError(404, 'profile not found');
   }
 
+  if (targetUser.id === currentUser.id) {
+    throw new AppError(400, 'cannot unfollow yourself');
+  }
+
   await profileModel.unfollowUser(currentUser.id, targetUser.id);
   const profile = await profileModel.getProfileByUsername(username, currentUser.id);
   return serializeProfile(profile);

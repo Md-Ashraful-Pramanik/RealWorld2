@@ -4,6 +4,7 @@ const userModel = require('../models/userModel');
 const { AppError } = require('../utils/errors');
 const { serializeUser } = require('../utils/serializer');
 const { signToken } = require('../utils/auth');
+const { assertAllowedFields, requireString } = require('../utils/validation');
 
 function requireFields(payload, fields) {
   const missing = fields.filter((field) => !payload[field]);
@@ -13,14 +14,18 @@ function requireFields(payload, fields) {
 }
 
 async function login(userPayload = {}) {
+  assertAllowedFields(userPayload, ['email', 'password'], 'user');
   requireFields(userPayload, ['email', 'password']);
 
-  const user = await userModel.findByEmail(userPayload.email.trim().toLowerCase());
+  const email = requireString(userPayload, 'email', { scope: 'user' }).toLowerCase();
+  const password = requireString(userPayload, 'password', { scope: 'user' });
+
+  const user = await userModel.findByEmail(email);
   if (!user) {
     throw new AppError(401, 'invalid credentials');
   }
 
-  const passwordMatches = await bcrypt.compare(userPayload.password, user.password_hash);
+  const passwordMatches = await bcrypt.compare(password, user.password_hash);
   if (!passwordMatches) {
     throw new AppError(401, 'invalid credentials');
   }
@@ -32,12 +37,17 @@ async function login(userPayload = {}) {
 }
 
 async function register(userPayload = {}) {
+  assertAllowedFields(userPayload, ['username', 'email', 'password'], 'user');
   requireFields(userPayload, ['username', 'email', 'password']);
 
-  const passwordHash = await bcrypt.hash(userPayload.password, 10);
+  const username = requireString(userPayload, 'username', { scope: 'user' });
+  const email = requireString(userPayload, 'email', { scope: 'user' }).toLowerCase();
+  const password = requireString(userPayload, 'password', { scope: 'user' });
+
+  const passwordHash = await bcrypt.hash(password, 10);
   const user = await userModel.createUser({
-    username: userPayload.username.trim(),
-    email: userPayload.email.trim().toLowerCase(),
+    username,
+    email,
     passwordHash
   });
 

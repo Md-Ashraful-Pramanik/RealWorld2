@@ -54,34 +54,34 @@ function articleProjection(viewerParam = 1) {
       u.username AS author_username,
       u.bio AS author_bio,
       u.image AS author_image,
-      COALESCE(ARRAY_REMOVE(ARRAY_AGG(DISTINCT t.name), NULL), '{}') AS tag_list,
-      COUNT(DISTINCT fav.user_id)::int AS favorites_count,
-      COALESCE(BOOL_OR(fav.user_id = $${viewerParam}), FALSE) AS favorited,
-      COALESCE(BOOL_OR(fol.follower_id = $${viewerParam}), FALSE) AS following
+      COALESCE((
+        SELECT ARRAY_AGG(t.name ORDER BY at.position)
+        FROM article_tags at
+        JOIN tags t ON t.id = at.tag_id
+        WHERE at.article_id = a.id
+      ), '{}') AS tag_list,
+      (
+        SELECT COUNT(*)::int
+        FROM favorites fav
+        WHERE fav.article_id = a.id
+      ) AS favorites_count,
+      EXISTS (
+        SELECT 1
+        FROM favorites fav
+        WHERE fav.article_id = a.id AND fav.user_id = $${viewerParam}
+      ) AS favorited,
+      EXISTS (
+        SELECT 1
+        FROM follows fol
+        WHERE fol.following_id = u.id AND fol.follower_id = $${viewerParam}
+      ) AS following
     FROM articles a
     JOIN users u ON u.id = a.author_id
-    LEFT JOIN article_tags at ON at.article_id = a.id
-    LEFT JOIN tags t ON t.id = at.tag_id
-    LEFT JOIN favorites fav ON fav.article_id = a.id
-    LEFT JOIN follows fol ON fol.following_id = u.id AND fol.follower_id = $${viewerParam}
   `;
 }
 
 function articleGrouping() {
-  return `
-    GROUP BY
-      a.id,
-      a.slug,
-      a.title,
-      a.description,
-      a.body,
-      a.created_at,
-      a.updated_at,
-      u.id,
-      u.username,
-      u.bio,
-      u.image
-  `;
+  return '';
 }
 
 async function slugExists(slug, executor) {

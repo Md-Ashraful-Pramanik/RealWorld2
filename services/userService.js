@@ -4,6 +4,12 @@ const userModel = require('../models/userModel');
 const { AppError } = require('../utils/errors');
 const { serializeUser } = require('../utils/serializer');
 const { signToken } = require('../utils/auth');
+const {
+  assertAllowedFields,
+  requireAtLeastOneField,
+  optionalNullableString,
+  optionalString
+} = require('../utils/validation');
 
 async function getCurrentUser(user) {
   const freshUser = await userModel.findById(user.id);
@@ -11,26 +17,27 @@ async function getCurrentUser(user) {
 }
 
 async function updateCurrentUser(currentUser, updates = {}) {
+  const allowedFields = ['email', 'password', 'image', 'bio'];
+  assertAllowedFields(updates, allowedFields, 'user');
+  requireAtLeastOneField(updates, allowedFields, 'user update');
+
   const payload = {};
 
   if (updates.email !== undefined) {
-    payload.email = updates.email.trim().toLowerCase();
-  }
-
-  if (updates.username !== undefined) {
-    payload.username = updates.username.trim();
+    payload.email = optionalString(updates, 'email', { scope: 'user' }).toLowerCase();
   }
 
   if (updates.bio !== undefined) {
-    payload.bio = updates.bio;
+    payload.bio = optionalNullableString(updates, 'bio', { scope: 'user' });
   }
 
   if (updates.image !== undefined) {
-    payload.image = updates.image;
+    payload.image = optionalNullableString(updates, 'image', { scope: 'user' });
   }
 
   if (updates.password !== undefined) {
-    payload.password_hash = await bcrypt.hash(updates.password, 10);
+    const password = optionalString(updates, 'password', { scope: 'user' });
+    payload.password_hash = await bcrypt.hash(password, 10);
   }
 
   const updatedUser = await userModel.updateUser(currentUser.id, payload);
